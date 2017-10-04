@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <sys/types.h>
+#include <sys/wait.h>
 #include <unistd.h>
 #include <signal.h>
 #include <time.h>
@@ -51,7 +52,7 @@ void update_struct (Server* server, pid_t* pid){
 @param server the server to be created
 @return 0 on successful creation of server, otherwise error
 */
-void creater_server (Server* server, char* tokens[]){
+void create_server ( char* tokens[]){
 
   if (execvp(tokens[0], tokens) < 0) {
         fprintf(stderr, "Error: Could not start server.\n");
@@ -115,6 +116,7 @@ int parse_command(char* command_buffer, char* tokens[]) {
             return -1;
         }
     }
+    free(command_buffer);
     return 0;
 }
 
@@ -187,15 +189,15 @@ int main(int argc, char* argv[]){
 
      // Keep waiting for user input for the next command
      while (1) {
-       char* tokens[MAX_ARGS];
+       //char* tokens[MAX_ARGS];
        display_prompt();
-       if (read_command(tokens) != 0) {
+       if (read_command(server_args) != 0) {
            continue;
        }
        
-       if ( strcmp(tokens[0], "abortServer") == 0){
+       if ( strcmp(server_args[0], "abortServer") == 0){
 	 // Check that the min_process passed in is not less than the default.
-         name = tokens[1];
+         name = server_args[1];
  
 	 // Search for server to send a kill signal.
 	 pid_t target_server_pid = (search_server(name, manager)); 
@@ -203,23 +205,25 @@ int main(int argc, char* argv[]){
 	   fprintf(stderr, "ERROR: no server found under name %s\n", name);
 	 } else { // Send the signal for the server to shut down.
            
-	   kill(target_server_pid, SIGINT);
-
-           // Decrement the number of servers in the pool.
+	   // Decrement the number of servers in the pool.
            server_count--;
+	   kill(target_server_pid, SIGINT);
+	   waitpid(target_server_pid, NULL, 0);
+
+           
 	 }
-       } else if ( strcmp(tokens[0], "createProcess") == 0){
+       } /*else if ( strcmp(tokens[0], "createProcess") == 0){
          // Do stuff for createProcess
        } else if ( strcmp(tokens[0], "abortProcess") == 0){
          // Do stuff for abort process
        } else if ( strcmp(tokens[0], "displayStatus") == 0 ){ 
          // Do stuff for display status
-       }
+       }*/
 	
      }
    }
   if ( pid == 0) { // The child starts the server in here
-      creater_server(&manager[server_count], server_args);
+      create_server( server_args);
   }
   sleep(15);
   return 0;
