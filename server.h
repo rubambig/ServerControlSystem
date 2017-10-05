@@ -35,14 +35,14 @@ void deallocate_child( Children * child);
  * General signal handler to handle SIGUSR1, SIGUSR2, SIGINT signals.
  * @param sigNum is the received signal
  */
-void sig_terminate_handler (int sigNum);
-  
-/**
- * Sends signals to children to recuperate system 
- * resources before terminating 
- * @param child_pids the array of its children's IDs
- */
-void terminate_children( Children * child_pids[]);
+void server_sig_handler (int sigNum);
+
+/*
+ *Shuts down a server's child process
+  @param sigNum the signal sent to the child
+*/
+void replica_sig_handler (int sigNum);
+
 
 /**
  * Replicates the server a given number of times 

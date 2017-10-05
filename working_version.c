@@ -229,7 +229,7 @@ int main(int argc, char* argv[]){
          name = server_args[2];
  
 	 // Search for server to send a kill signal.
-	 pid_t target_server_pid = (search_server(name, manager)); 
+	 int target_server_pid = (search_server(name, manager)); 
 	 if ( target_server_pid < 0){
 	   fprintf(stderr, "ERROR: no server found under name %s\n", name);
 	 } else { // Send the signal for the server to shut down.
@@ -250,7 +250,7 @@ int main(int argc, char* argv[]){
          name = server_args[2];
 	 
 	 // Search for the server that will create a process 
-	 pid_t target_server_pid = (create_process(name, manager)); 
+	 int target_server_pid = (create_process(name, manager)); 
 	 if ( target_server_pid < 0){
 	   fprintf(stderr, "ERROR: no server found under name %s\n", name);
 	 } else if (target_server_pid > 0)  { // Send the signal for the server to shut down.
@@ -262,9 +262,9 @@ int main(int argc, char* argv[]){
 	 } else {
 	   printf("Sorry, server %s is at full capacity\n", name);
 	 }
-       } /*else if ( strcmp(tokens[0], "abortProcess") == 0){
+       } else if ( strcmp(server_args[1], "abortProcess") == 0){
          // Do stuff for abort process
-       } */
+       } 
 	
      }
 }

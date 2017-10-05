@@ -19,13 +19,6 @@
 // Declare all the children for ease of sending them signals
 Children child_pids[MAX_REPLICAS];
 
-/**
- * Sends signals to children to recuperate system 
- * resources before terminating 
- * @param child_pids the array of its children's IDs
- */
-void terminate_children( Children * child_pids[]){
-}
 
 /**
  * General signal handler to handle SIGUSR1, SIGUSR2, SIGINT signals.
@@ -39,28 +32,33 @@ void server_sig_handler (int sigNum) {
         pid_t parent_pid = getpid();
         replicate(ONCE, &parent_pid, child_pids);
     }
-    if (sigNum == SIGUSR1) { // Gracefully exit when SIGINT received
+    if (sigNum == SIGUSR1) { // Gracefully exit when SIGUSR1 is received
         pid_t process_pid = getpid();
         printf ("Received an interrupt signal from server manager.\n");
         printf("My process id is %d, I am shutting down\n\n", process_pid);
 	printf ("Sending kill signals to all my children....\n\n");
-	int i = 0;
+	int i;
         for (i = 0; i < MAX_REPLICAS; ++i){
           pid_t current_child = child_pids[i].child_pid;
           //deallocate_child(&child_pids[i]);
           kill(current_child, SIGUSR1);
-	  //waitpid(current_child, NULL, WNOHANG);
+	  waitpid(current_child, NULL, 0);
         }
         exit(1);
     }
 }
 
+/*
+ *Shuts down a server's child process
+  @param sigNum the signal sent to the child
+*/
 void replica_sig_handler (int sigNum) {
   if (sigNum == SIGUSR1){
    printf("Child process here, shutting down...\n\n");
    exit(0);
   }
 }
+
 /**
  * Allocates memory for all the children's pids
  * To be used when replicating children
@@ -77,7 +75,7 @@ void allocate_child( Children * child){
  * @param child_pids the array of its children's IDs
  */
 void deallocate_child( Children * child){
-   free(child);
+   child->taken = false;
 }
 
 /**
@@ -119,10 +117,6 @@ int replicate ( int num, pid_t* parent_pid, Children child_pids[]) {
       
   }
   return 0;
-}
-
-void spawn_new_process(){
-  
 }
 
 int main(int argc, char* argv[]){
