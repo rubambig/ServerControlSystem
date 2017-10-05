@@ -36,7 +36,7 @@ void update_struct (Server* server, pid_t* pid);
 /**
  * Create a server and fill the pid
 */
-void create_server ( char* tokens[] );
+pid_t create_server ( char* tokens[] );
 
 /**
  * Reads in user commands and parses them into tokens
@@ -47,6 +47,11 @@ int read_command (char* tokens[]);
  * Displays a prompt for the user to input commands
 */
 void display_prompt();
+
+/**
+ * Displays the status of the system
+ */
+void display_status();
 
 /**
  * Parses commands into arguments
@@ -66,7 +71,7 @@ pid_t search_server ( const char* name, Server manager[] );
 /**
  * Creates a new process on the given server name 
  */
-int create_process ( char* name, Server manager[]);
+pid_t create_process ( const char* name , Server manager[]);
 
 /**
  * Aborts one copy of the given server name 

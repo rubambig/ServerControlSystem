@@ -1,22 +1,18 @@
-#include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/types.h>
-#include <unistd.h>
 #include <signal.h>
 #include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
 #include <signal.h>
 #include <time.h>
 #include "manager.h"
-#define MAX_SERVERS 100
+#define MAX_SERVERS 10
 #define MIN_REPLICAS 2
 #define STR_BUFFER_SIZE 255 // A linux file cannot be >255 characters long
-#define MAX_ARGS 5
+#define MAX_ARGS 6
 
 /*****************************************************
 * Main server manager that creates all servers
@@ -52,12 +48,16 @@ void update_struct (Server* server, pid_t* pid){
 @param server the server to be created
 @return 0 on successful creation of server, otherwise error
 */
-void create_server ( char* tokens[]){
-
-  if (execvp(tokens[0], tokens) < 0) {
-        fprintf(stderr, "Error: Could not start server.\n");
-        exit(-1);
-  };
+pid_t create_server ( char* tokens[]){
+ 
+  pid_t pid = fork();
+  if ( pid == 0){
+    execvp(tokens[0], tokens);
+  }
+  if ( pid == -1){
+    printf("There was an error forking\n\n");
+  }
+  return pid;
 }
 
 /**
@@ -67,6 +67,20 @@ void display_prompt(){
   printf("Please enter the next command --> ");
 }
 
+/**
+ * Displays the current status of the system
+ */
+void display_status(){
+  
+  int status;
+  pid_t pid = fork();
+  if (pid == 0){
+    char* command[] = {"/bin/bash", "-c", "ps f", NULL};
+    execvp(command[0], command);
+  } else {
+    wait(&status);
+  }
+}
 /**
  * Reads and parses the command entered by the user, and stores it in
  * pre-allocated buffers.
@@ -96,13 +110,13 @@ int read_command(char* tokens[]) {
  * @return -1 if an error occurs, 1 if no command was entered, 0 otherwise.
  */
 int parse_command(char* command_buffer, char* tokens[]) {
-    int count = 0;
+    int count = 1;
     char* delimiter = "\t \n";
     char* current_token = strtok(command_buffer, delimiter);
     if (current_token == NULL) {
         //resets tokens array to empty strings
         int i;
-        for (i = 0; i < MAX_ARGS; ++i) {
+        for (i = 1; i < MAX_ARGS; ++i) {
             tokens[i] = NULL;
         }
         return 1;
@@ -129,75 +143,90 @@ pid_t search_server ( const char* name, Server manager[] ){
   for ( k = 0; k < MAX_SERVERS; ++k) {
     if ( manager[k].name != NULL) { // Avoids comparing to null pointers.
         if( strcmp(manager[k].name,name) == 0){
-        ts_pid = manager[k].server_pid;
-	free(manager[k].name);
-        return ts_pid ;
+          ts_pid = manager[k].server_pid;
+	  free(manager[k].name);
+          return ts_pid ;
+      }
+    }
+  }
+  return -1;
+}
+
+/**
+ * Creates a new process on the given server name 
+ * @param name is the name of the server
+ * @param manager the server manager
+ * @return pid if we are not exceeding the limits 
+ * 0 if we are passing the limit 
+ * -1 if the given server does not exist
+ */
+pid_t create_process ( const char* name, Server manager[]){
+  int k;
+  pid_t ts_pid;
+  for ( k = 0; k < MAX_SERVERS; ++k) {
+    if ( manager[k].name != NULL ) { // Avoids comparing to null pointers.
+	int max = manager[k].max_process;
+	int active = manager[k].active_processes;
+        if( strcmp(manager[k].name,name) == 0){
+	  if ( active + 1 <= max){
+	    ts_pid = manager[k].server_pid;
+	    manager[k].active_processes++;
+            return ts_pid ;
+	  } else {
+	    return 0;
+	  }
       }
     }
   }
   return -1;
 }
 int main(int argc, char* argv[]){
+  
+  if (argc < 1){
+    printf("Please enter ./executable createServer min max\n\n");
+    exit(0);
+  }
 
+  printf("[Server Manager]: Started server manager\n" );
+  
   // Global variables for server and process limits
   Server manager[MAX_SERVERS];
   int server_count = 0;
   int proc_limits[2];
   pid_t pid;
   const char* name;
-  
+
   // Arguments to be passed to child processes via vector pointer
   char* server_args[MAX_ARGS];
   int i;
   for ( i = 0; i<4; ++i){
     server_args[i] = malloc(sizeof(char));
   }
-  
   server_args[0] = "./server.o";
-  strcpy(server_args[1], argv[2]);
-  strcpy(server_args[2], argv[3]);
-  strcpy(server_args[3], argv[4]);
   
-
-
-  printf("[Server Manager]: Started manager, creating servers soon\n" );
-
-  if ( strcmp(argv[1],"createServer") == 0){
-
-    // Check that the min_process passed in is not less than the default
-    if ( (atoi(argv[3])) < MIN_REPLICAS) {
-      printf("[Server Manager]: Minimum processes set to default of 2\n");
-      proc_limits[0] = MIN_REPLICAS;
-    } else {
-      proc_limits[0] = atoi(argv[3]);
-    }
-    
-    // Fill the globals before passing them to fill struct
-    name = argv[2];
-    proc_limits[1] = atoi(argv[4]);
-    fill_struct(&manager[server_count], name, proc_limits);
-  }
-  
-  if ( ( pid = fork()) < 0){
-    fprintf(stderr, "Forking the server failed!\n");
-  }
-
-  if ( pid > 0 ) { // The parent keeps executing from here
-      // Update the child's struct
-      update_struct(&manager[server_count], &pid);
-      server_count++;
-
-     // Keep waiting for user input for the next command
+  // Keep waiting for user input for the next command
      while (1) {
-       //char* tokens[MAX_ARGS];
+       
        display_prompt();
        if (read_command(server_args) != 0) {
            continue;
        }
        
-       if ( strcmp(server_args[0], "abortServer") == 0){
-	 // Check that the min_process passed in is not less than the default.
-         name = server_args[1];
+       if ( strcmp (server_args[1], "createServer") == 0){
+	 
+	 // Assign arguments for the struct of the given server.
+	 name = server_args[2];
+	 proc_limits[0] = atoi(server_args[3]);
+	 proc_limits[1] = atoi(server_args[4]);
+	 
+	 // Create the server and update its struct
+	 fill_struct(&manager[server_count], name, proc_limits);
+	 pid = create_server(server_args);
+	 update_struct(&manager[server_count],&pid);
+	 server_count++;
+	   
+       } else if ( strcmp(server_args[1], "abortServer") == 0){
+         name = server_args[2];
  
 	 // Search for server to send a kill signal.
 	 pid_t target_server_pid = (search_server(name, manager)); 
@@ -207,28 +236,36 @@ int main(int argc, char* argv[]){
            
 	   // Decrement the number of servers in the pool.
            server_count--;
-	   kill(target_server_pid, SIGINT);
-	   waitpid(target_server_pid, NULL, 0);
+	   int status;
+	   kill(target_server_pid, SIGUSR1);
+	   wait(&status);
 
-           
 	 }
-       } /*else if ( strcmp(tokens[0], "createProcess") == 0){
-         // Do stuff for createProcess
-       } else if ( strcmp(tokens[0], "abortProcess") == 0){
+       } else if ( strcmp(server_args[1], "quit") == 0){
+	 exit(0);
+       } else if ( strcmp(server_args[1], "displayStatus") == 0){
+	 display_status();
+       }
+       else if ( strcmp(server_args[1], "createProcess") == 0){
+         name = server_args[2];
+	 
+	 // Search for the server that will create a process 
+	 pid_t target_server_pid = (create_process(name, manager)); 
+	 if ( target_server_pid < 0){
+	   fprintf(stderr, "ERROR: no server found under name %s\n", name);
+	 } else if (target_server_pid > 0)  { // Send the signal for the server to shut down.
+           
+	   int status;
+	   kill(target_server_pid, SIGUSR2);
+	   wait(&status);
+
+	 } else {
+	   printf("Sorry, server %s is at full capacity\n", name);
+	 }
+       } /*else if ( strcmp(tokens[0], "abortProcess") == 0){
          // Do stuff for abort process
-       } else if ( strcmp(tokens[0], "displayStatus") == 0 ){ 
-         // Do stuff for display status
-       }*/
+       } */
 	
      }
-   }
-  if ( pid == 0) { // The child starts the server in here
-      create_server( server_args);
-  }
-  sleep(15);
-  return 0;
-
-
-
 }
 
