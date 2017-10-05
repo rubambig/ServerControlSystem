@@ -50,7 +50,7 @@ void server_sig_handler (int sigNum) {
 
 /*
  *Shuts down a server's child process
-  @param sigNum the signal sent to the child
+ *@param sigNum the signal sent to the child
 */
 void replica_sig_handler (int sigNum) {
   if (sigNum == SIGUSR1){
