@@ -21,13 +21,13 @@
 * Version: 09/28/2017
 ******************************************************/
 
-/*****************************************************
+/**
 Fills the server's struct for housekeeping purposes
 * Server manager uses this to keep track of the server
 * @param server the struct to be filled
 * @param parent_pid the server's manager aka its parent
 * @param arguments the parameters passed by the user
-******************************************************/
+*/
 void fill_struct(Server* server, const char* name, int limits[]){
   server->name = malloc(sizeof(ServerName));
   strcpy(server->name, name);
@@ -238,7 +238,8 @@ int main(int argc, char* argv[]){
            server_count--;
 	   int status;
 	   kill(target_server_pid, SIGUSR1);
-	   wait(&status);
+	   waitpid(target_server_pid, &status, 0);
+	   printf("The return status of child was %d\n", status);
 
 	 }
        } else if ( strcmp(server_args[1], "quit") == 0){

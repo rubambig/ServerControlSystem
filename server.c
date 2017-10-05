@@ -34,8 +34,8 @@ void server_sig_handler (int sigNum) {
     }
     if (sigNum == SIGUSR1) { // Gracefully exit when SIGUSR1 is received
         pid_t process_pid = getpid();
-        printf ("Received an interrupt signal from server manager.\n");
-        printf("My process id is %d, I am shutting down\n\n", process_pid);
+        printf ("[Replica]: Received an SIGUSR1 signal from server manager.\n");
+        printf("[Replica]: My process id is %d, I am shutting down\n\n", process_pid);
 	printf ("Sending kill signals to all my children....\n\n");
 	int i;
         for (i = 0; i < MAX_REPLICAS; ++i){
@@ -125,16 +125,14 @@ int main(int argc, char* argv[]){
   signal(SIGUSR1, server_sig_handler);
   signal(SIGUSR2, server_sig_handler);  
 
-  printf("[%s]: I am a newly created server, spawning %d "
-          "children soon\n\n", argv[1], atoi(argv[3]));
+  printf("[Server: %s]: I am a new server, spawning %d "
+          "children to begin\n\n", argv[1], atoi(argv[3]));
   
   // Global variables for the children pids and arguments passed in
   char* my_sname = argv[1];
   int fork_success, num_active = atoi(argv[3]);
   pid_t parent_pid = getpid();
 	
-  
-
   // Fork the children num_active number of times
   fork_success = replicate(num_active, &parent_pid, child_pids);
   if ( (fork_success) < 0){
@@ -142,13 +140,7 @@ int main(int argc, char* argv[]){
                "processes in the %s server\n", my_sname);
   }
   
-  int j;
-  for (j =0; j < num_active; ++j){
-    printf("Child # %d is %d, pid is %d\n\n",
-	   j,child_pids[j].taken,child_pids[j].child_pid);
-  }
-
   
   pause();
-  exit(0);
+  return 0;
 }
